@@ -1,0 +1,10 @@
+{
+  "context": {
+    "availability-zones:account=794715269151:region=us-west-2": [
+      "us-west-2a",
+      "us-west-2b",
+      "us-west-2c"
+    ],
+    "ssm:account=794715269151:parameterName=/aws/service/ecs/optimized-ami/amazon-linux/recommended:region=us-west-2": "{\"schema_version\":1,\"image_name\":\"amzn-ami-2018.03.l-amazon-ecs-optimized\",\"image_id\":\"ami-0d3bd9852d477ade8\",\"os\":\"Amazon Linux\",\"ecs_runtime_version\":\"Docker version 18.06.1-ce\",\"ecs_agent_version\":\"1.25.1\"}"
+  }
+}

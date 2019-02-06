@@ -1,0 +1,10 @@
+{
+  "context": {
+    "availability-zones:account=794715269151:region=us-west-2": [
+      "us-west-2a",
+      "us-west-2b",
+      "us-west-2c"
+    ],
+    "ssm:account=794715269151:parameterName=/aws/service/ami-amazon-linux-latest/amzn-ami-hvm-x86_64-gp2:region=us-west-2": "ami-01e24be29428c15b2"
+  }
+}
