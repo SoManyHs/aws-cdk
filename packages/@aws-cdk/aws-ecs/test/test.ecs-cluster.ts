@@ -220,6 +220,27 @@ export = {
     test.done();
   },
 
+  "allows specifying AMI type"(test: Test) {
+    // GIVEN
+    const stack = new cdk.Stack();
+    const vpc = new ec2.VpcNetwork(stack, 'MyVpc', {});
+
+    const cluster = new ecs.Cluster(stack, 'EcsCluster', { vpc });
+    cluster.addCapacity('GpuAutoScalingGroup', {
+      instanceType: new ec2.InstanceType('t2.micro'),
+      machineImage: new ecs.EcsOptimizedAmi({
+        amiType: ecs.EcsOptimizedAmiType.Gpu
+      }),
+    });
+
+    // THEN
+    expect(stack).to(haveResource("AWS::AutoScaling::LaunchConfiguration", {
+      ImageId: ""
+    }));
+
+    test.done();
+  },
+
   "allows adding default service discovery namespace"(test: Test) {
     // GIVEN
     const stack = new cdk.Stack();
