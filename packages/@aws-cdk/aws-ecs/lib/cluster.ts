@@ -167,7 +167,7 @@ export class Cluster extends Resource implements ICluster {
     const cluster = new CfnCluster(this, 'Resource', {
       clusterName: this.physicalName,
       clusterSettings,
-      capacityProviders: Lazy.list({ produce: () => this._fargateCapacityProviders }, { omitEmpty: true }),
+      // capacityProviders: Lazy.list({ produce: () => this._fargateCapacityProviders }, { omitEmpty: true }),
     });
 
     this.clusterArn = this.getResourceArnAttribute(cluster.attrArn, {
@@ -193,7 +193,7 @@ export class Cluster extends Resource implements ICluster {
     // since it's harmless, but we'd prefer not to add unexpected new
     // resources to the stack which could surprise users working with
     // brown-field CDK apps and stacks.
-    Aspects.of(this).add(new MaybeCreateCapacityProviderAssociations(this, id, this._asgCapacityProviders));
+    Aspects.of(this).add(new MaybeCreateCapacityProviderAssociations(this, id, this._asgCapacityProviders, this._fargateCapacityProviders));
   }
 
   /**
@@ -1174,15 +1174,22 @@ class MaybeCreateCapacityProviderAssociations implements IAspect {
   private scope: CoreConstruct;
   private id: string;
   private capacityProviders: AsgCapacityProvider[]
+  private fgCapacityProviders: string[]
 
-  constructor(scope: CoreConstruct, id: string, capacityProviders: AsgCapacityProvider[]) {
+  constructor(scope: CoreConstruct, id: string, asgCapacityProviders: AsgCapacityProvider[], fgCapacityProviders: string[] ) {
     this.scope = scope;
     this.id = id;
-    this.capacityProviders = capacityProviders;
+    this.capacityProviders = asgCapacityProviders;
+    this.fgCapacityProviders = fgCapacityProviders;
   }
+
   public visit(node: IConstruct): void {
     if (node instanceof Cluster) {
       const providers = this.capacityProviders.map(p => p.capacityProviderName).filter(p => p !== 'FARGATE' && p !== 'FARGATE_SPOT');
+
+      for (const provider of this.fgCapacityProviders) {
+        providers.push(provider);
+      }
       if (providers.length > 0) {
         new CfnClusterCapacityProviderAssociations(this.scope, this.id, {
           cluster: node.clusterName,

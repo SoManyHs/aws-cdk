@@ -10,6 +10,8 @@ const vpc = new ec2.Vpc(stack, 'Vpc', { maxAzs: 2 });
 
 const cluster = new ecs.Cluster(stack, 'EC2CPCluster', {
   vpc,
+  // clusterName: 'test-cap-providers',
+  enableFargateCapacityProviders: true,
 });
 
 const taskDefinition = new ecs.Ec2TaskDefinition(stack, 'TaskDef');
