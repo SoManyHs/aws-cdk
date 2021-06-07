@@ -145,6 +145,10 @@ nodeunitShim({
 
       // THEN
       expect(stack).to(haveResource('AWS::ECS::Cluster', {
+        CapacityProviders: ABSENT,
+      }));
+
+      expect(stack).to(haveResource('AWS::ECS::ClusterCapacityProviderAssociations', {
         CapacityProviders: ['FARGATE', 'FARGATE_SPOT'],
       }));
 
@@ -231,6 +235,10 @@ nodeunitShim({
 
       // THEN
       expect(stack).to(haveResource('AWS::ECS::Cluster', {
+        CapacityProviders: ABSENT,
+      }));
+
+      expect(stack).to(haveResource('AWS::ECS::ClusterCapacityProviderAssociations', {
         CapacityProviders: ['FARGATE', 'FARGATE_SPOT'],
       }));
 

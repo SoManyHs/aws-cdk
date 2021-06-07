@@ -5,7 +5,7 @@ import * as iam from '@aws-cdk/aws-iam';
 import * as kms from '@aws-cdk/aws-kms';
 import * as cloudmap from '@aws-cdk/aws-servicediscovery';
 import * as ssm from '@aws-cdk/aws-ssm';
-import { Duration, Lazy, IResource, Resource, Stack, Aspects, IAspect, IConstruct } from '@aws-cdk/core';
+import { Duration, IResource, Resource, Stack, Aspects, IAspect, IConstruct } from '@aws-cdk/core';
 import { Construct } from 'constructs';
 import { InstanceDrainHook } from './drain-hook/instance-drain-hook';
 import { ECSMetrics } from './ecs-canned-metrics.generated';
@@ -117,14 +117,14 @@ export class Cluster extends Resource implements ICluster {
   public readonly clusterName: string;
 
   /**
-   * The cluster-level (FARGATE, FARGATE_SPOT) capacity providers.
-   */
-  private _fargateCapacityProviders: string[] = [];
-
-  /**
    * The EC2 Auto Scaling Group capacity providers associated with the cluster.
    */
   private _asgCapacityProviders: AsgCapacityProvider[] = [];
+
+  /**
+   * The names of both ASG and Fargate capacity providers associated with the cluster.
+   */
+  private _capacityProviderNames: string[] = [];
 
   /**
    * The AWS Cloud Map namespace to associate with the cluster.
@@ -159,7 +159,7 @@ export class Cluster extends Resource implements ICluster {
       clusterSettings = [{ name: 'containerInsights', value: props.containerInsights ? ContainerInsights.ENABLED : ContainerInsights.DISABLED }];
     }
 
-    this._fargateCapacityProviders = props.capacityProviders ?? [];
+    this._capacityProviderNames = props.capacityProviders ?? [];
     if (props.enableFargateCapacityProviders) {
       this.enableFargateCapacityProviders();
     }
@@ -167,7 +167,6 @@ export class Cluster extends Resource implements ICluster {
     const cluster = new CfnCluster(this, 'Resource', {
       clusterName: this.physicalName,
       clusterSettings,
-      // capacityProviders: Lazy.list({ produce: () => this._fargateCapacityProviders }, { omitEmpty: true }),
     });
 
     this.clusterArn = this.getResourceArnAttribute(cluster.attrArn, {
@@ -193,7 +192,7 @@ export class Cluster extends Resource implements ICluster {
     // since it's harmless, but we'd prefer not to add unexpected new
     // resources to the stack which could surprise users working with
     // brown-field CDK apps and stacks.
-    Aspects.of(this).add(new MaybeCreateCapacityProviderAssociations(this, id, this._asgCapacityProviders, this._fargateCapacityProviders));
+    Aspects.of(this).add(new MaybeCreateCapacityProviderAssociations(this, 'CapProviderAssociations', this._capacityProviderNames));
   }
 
   /**
@@ -201,8 +200,8 @@ export class Cluster extends Resource implements ICluster {
    */
   public enableFargateCapacityProviders() {
     for (const provider of ['FARGATE', 'FARGATE_SPOT']) {
-      if (!this._fargateCapacityProviders.includes(provider)) {
-        this._fargateCapacityProviders.push(provider);
+      if (!this._capacityProviderNames.includes(provider)) {
+        this._capacityProviderNames.push(provider);
       }
     }
   }
@@ -291,6 +290,7 @@ export class Cluster extends Resource implements ICluster {
     });
 
     this._asgCapacityProviders.push(provider);
+    this._capacityProviderNames.push(provider.capacityProviderName);
   }
 
   /**
@@ -412,8 +412,8 @@ export class Cluster extends Resource implements ICluster {
       throw new Error('CapacityProvider not supported');
     }
 
-    if (!this._fargateCapacityProviders.includes(provider)) {
-      this._fargateCapacityProviders.push(provider);
+    if (!this._capacityProviderNames.includes(provider)) {
+      this._capacityProviderNames.push(provider);
     }
   }
 
@@ -1173,28 +1173,22 @@ export class AsgCapacityProvider extends CoreConstruct {
 class MaybeCreateCapacityProviderAssociations implements IAspect {
   private scope: CoreConstruct;
   private id: string;
-  private capacityProviders: AsgCapacityProvider[]
-  private fgCapacityProviders: string[]
+  private capacityProviders: string[]
 
-  constructor(scope: CoreConstruct, id: string, asgCapacityProviders: AsgCapacityProvider[], fgCapacityProviders: string[] ) {
+  constructor(scope: CoreConstruct, id: string, capacityProviders: string[] ) {
     this.scope = scope;
     this.id = id;
-    this.capacityProviders = asgCapacityProviders;
-    this.fgCapacityProviders = fgCapacityProviders;
+    this.capacityProviders = capacityProviders;
   }
 
   public visit(node: IConstruct): void {
     if (node instanceof Cluster) {
-      const providers = this.capacityProviders.map(p => p.capacityProviderName).filter(p => p !== 'FARGATE' && p !== 'FARGATE_SPOT');
-
-      for (const provider of this.fgCapacityProviders) {
-        providers.push(provider);
-      }
-      if (providers.length > 0) {
+      if (this.capacityProviders.length > 0) {
         new CfnClusterCapacityProviderAssociations(this.scope, this.id, {
           cluster: node.clusterName,
           defaultCapacityProviderStrategy: [],
-          capacityProviders: Lazy.list({ produce: () => providers }),
+          capacityProviders: this.capacityProviders,
+          // capacityProviders: Lazy.list({ produce: () => this.capacityProviders }),
         });
       }
     }
